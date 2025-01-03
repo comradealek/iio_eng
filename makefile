@@ -3,7 +3,7 @@ glfw := cocoa_time.o context.o egl_context.o glx_context.o init.o input.o linux_
 libs :=
 includes := -Iinclude
 glfwincludes := -IGLFWsrc
-cflags := -O3 -g -lm
+cflags := -O3 -g -lm -D_GLFW_WAYLAND
 
 main : $(objects) $(glfw)
 	gcc -o bin/main $(objects) $(glfw) $(libs) $(includes) $(cflags)
@@ -13,4 +13,7 @@ $(objects) : %.o : src/%.c
 
 
 $(glfw) : %.o : GLFWsrc/%.c
-	gcc -c $^ $(libs) $(glfwincludes) $(cflags) -D_GLFW_WAYLAND
+	gcc -c $^ $(libs) $(glfwincludes) $(cflags)
+
+clean : 
+	rm $(objects) $(glfw)
