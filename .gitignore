@@ -1,0 +1,4 @@
+resources/glTF-Sample-Assets/
+*.o
+bin/main
+.vscode/
