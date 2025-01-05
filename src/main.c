@@ -21,7 +21,6 @@ int main(void) {
     printf("Vulkan supported\n");
   }
   PFN_vkCreateInstance pfnCreateInstance = (PFN_vkCreateInstance) glfwGetInstanceProcAddress(NULL, "vkCreateInstance");
-  // pfnCreateInstance();
   uint32_t count;
   const char ** extensions = glfwGetRequiredInstanceExtensions(&count);
   VkInstanceCreateInfo ici;
@@ -30,6 +29,9 @@ int main(void) {
   ici.ppEnabledExtensionNames = extensions;
   for (int i = 0; i < count; i++) {
     printf("%s\n", extensions[i]);
+  }
+  while (!glfwWindowShouldClose(window)) {
+    glfwPollEvents();
   }
   glfwTerminate();
 }
