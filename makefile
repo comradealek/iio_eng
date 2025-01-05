@@ -1,19 +1,37 @@
-objects := yyjson.o main.o model_loader.o
-glfw := cocoa_time.o context.o egl_context.o glx_context.o init.o input.o linux_joystick.o monitor.o null_init.o null_joystick.o null_monitor.o null_window.o osmesa_context.o platform.o posix_module.o posix_poll.o posix_thread.o posix_time.o vulkan.o wgl_context.o win32_init.o win32_joystick.o win32_module.o win32_monitor.o win32_thread.o win32_time.o win32_window.o window.o wl_init.o wl_monitor.o wl_window.o x11_init.o x11_monitor.o x11_window.o xkb_unicode.o
-libs :=
+src := $(shell echo src/*.c)
+srctut := $(shell echo srctut/*.c)
+srcglfw := $(shell echo GLFWsrc/*.c)
+
+objs := $(src:src/%.c=obj/%.o)
+tutobjs := $(srctut:srctut/%.c=tutobj/%.o)
+glfwobjs := $(srcglfw:GLFWsrc/%.c=glfwobj/%.o)
+
+tout := bin/tutorial
+mout := bin/main
+
+libs := -ldl
 includes := -Iinclude
 glfwincludes := -IGLFWsrc
-cflags := -O3 -g -lm -D_GLFW_WAYLAND
+cflags := -O0 -g -lm -D_GLFW_WAYLAND
 
-main : $(objects) $(glfw)
-	gcc -o bin/main $(objects) $(glfw) $(libs) $(includes) $(cflags)
+main : $(mout)
 
-$(objects) : %.o : src/%.c
-	gcc -c $^ $(libs) $(includes) $(cflags)
+tutorial : $(tout)
 
+$(mout) : $(objs) $(glfwobjs)
+	gcc -o $(mout) $(objs) $(glfwobjs) $(libs) $(includes) $(cflags)
 
-$(glfw) : %.o : GLFWsrc/%.c
-	gcc -c $^ $(libs) $(glfwincludes) $(cflags)
+$(tout) :  $(tutobjs) $(glfwobjs)
+	gcc -o $(tout) $(tutobjs) $(glfwobjs) $(libs) $(includes) $(cflags)
+
+obj/%.o : src/%.c
+	gcc -c $< -o $@ $(libs) $(includes) $(cflags)
+
+tutobj/%.o : srctut/%.c
+	gcc -c $< -o $@ $(libs) $(includes) $(cflags)
+
+glfwobj/%.o : GLFWsrc/%.c
+	gcc -c $< -o $@ $(libs) $(glfwincludes) $(cflags)
 
 clean : 
-	rm $(objects) $(glfw)
+	rm $(objs) $(glfwobjs) $(tutobjs) bin/main bin/tutorial
