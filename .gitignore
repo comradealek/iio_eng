@@ -1,4 +1,5 @@
 resources/glTF-Sample-Assets/
 *.o
 bin/main
+bin/tutorial
 .vscode/
