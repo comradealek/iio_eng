@@ -14,7 +14,9 @@ const char* deviceExtensions [] = {
 typedef struct SwapChainSupportDetails_S {
     VkSurfaceCapabilitiesKHR capabilities;
     VkSurfaceFormatKHR * formats;
+    uint32_t formatCount;
     VkPresentModeKHR * presentModes;
+    uint32_t presentModeCount;
 } SwapChainSupportDetails;
 
 const char * validationLayers = "VK_LAYER_KHRONOS_validation";
@@ -154,35 +156,49 @@ SwapChainSupportDetails querySwapChainSupport(htobj target, VkPhysicalDevice phy
 
   glad_vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, target->surface, &details.capabilities);
 
-  uint32_t formatCount;
-  glad_vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, target->surface, &formatCount, NULL);
+  glad_vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, target->surface, &details.formatCount, NULL);
 
-  if (formatCount) {
-    details.formats = malloc(sizeof(VkSurfaceFormatKHR) * formatCount);
-    glad_vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, target->surface, &formatCount, details.formats);
+  if (details.formatCount) {
+    details.formats = malloc(sizeof(VkSurfaceFormatKHR) * details.formatCount);
+    glad_vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, target->surface, &details.formatCount, details.formats);
   }
 
-  uint32_t presentModeCount;
-  glad_vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, target->surface, &presentModeCount, NULL);
+  glad_vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, target->surface, &details.presentModeCount, NULL);
 
-  if (presentModeCount) {
-    details.presentModes = malloc(sizeof(VkPresentModeKHR) * presentModeCount);
-    glad_vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, target->surface, &presentModeCount, details.presentModes);
+  if (details.presentModeCount) {
+    details.presentModes = malloc(sizeof(VkPresentModeKHR) * details.presentModeCount);
+    glad_vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, target->surface, &details.presentModeCount, details.presentModes);
   }
 
   return details;
 }
 
-VkSurfaceFormatKHR chooseSwapSurfaceFormat(VkSurfaceFormatKHR * availableFormats, uint32_t formatCount) {
-  VkSurfaceFormatKHR selectedFormat = availableFormats[0];
-  for (int i = 0; i < formatCount; i++) {
-    if (availableFormats[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR && availableFormats[i].format == VK_FORMAT_B8G8R8A8_SRGB) {
-      selectedFormat = availableFormats[i];
+VkSurfaceFormatKHR chooseSwapSurfaceFormat(SwapChainSupportDetails * details) {
+  VkSurfaceFormatKHR selectedFormat = details->formats[0];
+  for (int i = 0; i < details->formatCount; i++) {
+    if (details->formats[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR && details->formats[i].format == VK_FORMAT_B8G8R8A8_SRGB) {
+      selectedFormat = details->formats[i];
       break;
     }
   }
 
   return selectedFormat;
+}
+
+VkPresentModeKHR chooseSwapPresentMode (SwapChainSupportDetails * details) {
+  VkPresentModeKHR selectedPresentMode = VK_PRESENT_MODE_FIFO_KHR;
+  for (int i = 0; i < details->presentModeCount; i++) {
+    if (details->presentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR) {
+      selectedPresentMode = details->presentModes[i];
+      break;
+    }
+  }
+
+  return selectedPresentMode;
+}
+
+VkExtent2D chooseSwapExtent(VkSurfaceCapabilitiesKHR * capabilites) {
+  
 }
 
 int isDeviceSuitable(htobj target, VkPhysicalDevice physicalDevice) {
@@ -200,6 +216,8 @@ int isDeviceSuitable(htobj target, VkPhysicalDevice physicalDevice) {
   if (code) {
     SwapChainSupportDetails swapChainSupport = querySwapChainSupport(target, physicalDevice);
     code = swapChainSupport.formats && swapChainSupport.presentModes;
+    free(swapChainSupport.formats);
+    free(swapChainSupport.presentModes);
   }
 
   return code;
