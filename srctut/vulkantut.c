@@ -7,6 +7,15 @@
 
 const uint32_t HEIGHT = 480;
 const uint32_t WIDTH = 640;
+const char* deviceExtensions [] = {
+  VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+};
+
+typedef struct SwapChainSupportDetails_S {
+    VkSurfaceCapabilitiesKHR capabilities;
+    VkSurfaceFormatKHR * formats;
+    VkPresentModeKHR * presentModes;
+} SwapChainSupportDetails;
 
 const char * validationLayers = "VK_LAYER_KHRONOS_validation";
 
@@ -16,7 +25,7 @@ const char * validationLayers = "VK_LAYER_KHRONOS_validation";
   const int enableValidationLayers = 1;
 #endif
 
-typedef struct {
+typedef struct HelloTriangleObj_S {
   GLFWwindow * window;
   VkInstance instance;
   VkPhysicalDevice physicalDevice;
@@ -26,7 +35,7 @@ typedef struct {
   VkSurfaceKHR surface;
 } HelloTriangleObj;
 
-typedef struct {
+typedef struct QueueFamilyIndices_S {
   uint32_t graphicsFamily;
   int hasGraphics;
   uint32_t presentFamily;
@@ -47,7 +56,8 @@ void initGLADLibraries(htobj target) {
   // fprintf(stdout, "%d\n", version);
 }
 
-void createInstance(htobj target) {
+int createInstance(htobj target) {
+  int code = 1;
   VkApplicationInfo appInfo;
   memset(&appInfo, 0, sizeof(VkApplicationInfo));
   appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -71,13 +81,18 @@ void createInstance(htobj target) {
 
   if (glad_vkCreateInstance(&createInfo, NULL, &target->instance) != VK_SUCCESS) {
     printf("failed to create instance\n");
+    code = 0;
   }
+  return code;
 }
 
-void createSurface(htobj target) {
+int createSurface(htobj target) {
+  int code = 1;
   if (glfwCreateWindowSurface(target->instance, target->window, NULL, &target->surface) != VK_SUCCESS) {
     fprintf(stderr, "failed to create a window surface\n");
+    code = 0;
   }
+  return code;
 }
 
 int isComplete(QueueFamilyIndices * queue) {
@@ -111,21 +126,91 @@ QueueFamilyIndices findQueueFamilies(htobj target, VkPhysicalDevice physicalDevi
   return indices;
 }
 
-int isDeviceSuitable(htobj target, VkPhysicalDevice physicalDevice) {
-  QueueFamilyIndices indices = findQueueFamilies(target, physicalDevice);
+int checkDeviceExtensionSupport(VkPhysicalDevice physicalDevice) {
+  uint32_t extensionCount;
+  glad_vkEnumerateDeviceExtensionProperties(physicalDevice, NULL, &extensionCount, NULL);
+  VkExtensionProperties availableExtensions [extensionCount];
+  memset(availableExtensions, 0, sizeof(VkExtensionProperties) * extensionCount);
 
-  return indices.hasGraphics;
+  glad_vkEnumerateDeviceExtensionProperties(physicalDevice, NULL, &extensionCount, availableExtensions);
+
+  uint32_t deviceExtensionCount = sizeof(deviceExtensions) / sizeof(char*);
+
+  uint32_t matchingExtensions = 0;
+  // gross O(n^2) check
+  for (int i = 0; i < extensionCount; i++) {
+    for (int j = 0; j < deviceExtensionCount; j++) {
+      if (strncmp(availableExtensions[i].extensionName, deviceExtensions[j], 30) == 0) {
+        matchingExtensions++;
+      }
+    }
+  }
+
+  return matchingExtensions == deviceExtensionCount;
 }
 
-void pickPhysicalDevice(htobj target) {
+SwapChainSupportDetails querySwapChainSupport(htobj target, VkPhysicalDevice physicalDevice) {
+  SwapChainSupportDetails details;
+
+  glad_vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, target->surface, &details.capabilities);
+
+  uint32_t formatCount;
+  glad_vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, target->surface, &formatCount, NULL);
+
+  if (formatCount) {
+    details.formats = malloc(sizeof(VkSurfaceFormatKHR) * formatCount);
+    glad_vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, target->surface, &formatCount, details.formats);
+  }
+
+  uint32_t presentModeCount;
+  glad_vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, target->surface, &presentModeCount, NULL);
+
+  if (presentModeCount) {
+    details.presentModes = malloc(sizeof(VkPresentModeKHR) * presentModeCount);
+    glad_vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, target->surface, &presentModeCount, details.presentModes);
+  }
+
+  return details;
+}
+
+VkSurfaceFormatKHR chooseSwapSurfaceFormat(VkSurfaceFormatKHR * availableFormats, uint32_t formatCount) {
+  VkSurfaceFormatKHR selectedFormat = availableFormats[0];
+  for (int i = 0; i < formatCount; i++) {
+    if (availableFormats[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR && availableFormats[i].format == VK_FORMAT_B8G8R8A8_SRGB) {
+      selectedFormat = availableFormats[i];
+      break;
+    }
+  }
+
+  return selectedFormat;
+}
+
+int isDeviceSuitable(htobj target, VkPhysicalDevice physicalDevice) {
+  int code = 1;
+
+  if (code) {
+    QueueFamilyIndices indices = findQueueFamilies(target, physicalDevice);
+    code = isComplete(&indices);
+  }
+
+  if (code) {
+    code = checkDeviceExtensionSupport(physicalDevice);
+  }
+
+  if (code) {
+    SwapChainSupportDetails swapChainSupport = querySwapChainSupport(target, physicalDevice);
+    code = swapChainSupport.formats && swapChainSupport.presentModes;
+  }
+
+  return code;
+}
+
+int pickPhysicalDevice(htobj target) {
+  int code = 1;
   target->physicalDevice = VK_NULL_HANDLE;
   uint32_t deviceCount = 0;
   glad_vkEnumeratePhysicalDevices(target->instance, &deviceCount, NULL);
-  if (deviceCount == 0) {
-    fprintf(stderr, "No devices found that support Vulkan\n");
-    return;
-  }
-  VkPhysicalDevice devices[deviceCount];
+  VkPhysicalDevice devices[deviceCount < 1 ? 1 : deviceCount]; // this prevents a zero length array getting made. Not sure how important that is.
   glad_vkEnumeratePhysicalDevices(target->instance, &deviceCount, devices);
   for (int i = 0; i < deviceCount; i++) {
     if (isDeviceSuitable(target, devices[i])) {
@@ -136,10 +221,13 @@ void pickPhysicalDevice(htobj target) {
 
   if (target->physicalDevice == NULL) {
     fprintf(stderr, "failed to find a suitable GPU\n");
+    code = 0;
   }
+  return code;
 }
 
-void createLogicalDevice(htobj target) {
+int createLogicalDevice(htobj target) {
+  int code = 0;
   QueueFamilyIndices indices = findQueueFamilies(target, target->physicalDevice);
 
   byteArr * queueCreateInfos;
@@ -147,6 +235,7 @@ void createLogicalDevice(htobj target) {
 
   uint32_t queueFamilies[] = {indices.graphicsFamily, indices.presentFamily};
   uint32_t uniqueQueueFamilies[sizeof(queueFamilies) / sizeof(uint32_t)];
+  // bulid a set from queueFamilies to uinqueQueueFamilies
   int l = 0;
   for (int i = 0; i < (sizeof(queueFamilies) / sizeof(uint32_t)); i++) {
     // check if the uniqueQueueFamilies array contains queueFamilies[i]
@@ -186,20 +275,26 @@ void createLogicalDevice(htobj target) {
   createInfo.queueCreateInfoCount = (uint32_t)(arr_length(queueCreateInfos, sizeof(VkDeviceQueueCreateInfo)));
   createInfo.pEnabledFeatures = &deviceFeatures;
 
-  createInfo.enabledExtensionCount = 0;
+  uint32_t deviceExtensionCount = sizeof(deviceExtensions) / sizeof(char *);
+  createInfo.enabledExtensionCount = deviceExtensionCount;
+  createInfo.ppEnabledExtensionNames = deviceExtensions;
   createInfo.enabledLayerCount = 0;
 
   if (glad_vkCreateDevice(target->physicalDevice, &createInfo, NULL, &target->logicalDevice) != VK_SUCCESS) {
     fprintf(stderr, "Failed to create logical device\n");
+    code = 0;
   }
   free(queueCreateInfos);
+  return code;
 }
 
-void initVulkan(htobj target) {
-  createInstance(target);
-  createSurface(target);
-  pickPhysicalDevice(target);
-  createLogicalDevice(target);
+int initVulkan(htobj target) {
+  int code = 1;
+  if (code == 1) code = createInstance(target);
+  if (code == 1) code = createSurface(target);
+  if (code == 1) code = pickPhysicalDevice(target);
+  if (code == 1) code = createLogicalDevice(target);
+  return code;
 }
 
 void initGLAD(htobj target) {
