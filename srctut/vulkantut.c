@@ -1,9 +1,11 @@
 #include "glad/vulkan.h"
 #include "GLFW/glfw3.h"
-#include "dynarr.h"
+#include "dynarr_3.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+
+#define clamp(value, min, max) (value < min ? min : (value > max ? max : value))
 
 const uint32_t HEIGHT = 480;
 const uint32_t WIDTH = 640;
@@ -197,8 +199,18 @@ VkPresentModeKHR chooseSwapPresentMode (SwapChainSupportDetails * details) {
   return selectedPresentMode;
 }
 
-VkExtent2D chooseSwapExtent(VkSurfaceCapabilitiesKHR * capabilites) {
-  
+VkExtent2D chooseSwapExtent(htobj target, VkSurfaceCapabilitiesKHR * capabilites) {
+  VkExtent2D extent;
+  if (capabilites->currentExtent.width != 0xffffffff) {
+    extent = capabilites->currentExtent;
+  } else {
+    int width, height;
+    glfwGetFramebufferSize(target->window, &width, &height);
+    extent.width = (uint32_t) width;
+    extent.height = (uint32_t) height;
+    extent.width = clamp(extent.width, capabilites->minImageExtent.width, capabilites->maxImageExtent.width);
+    extent.height = clamp(extent.height, capabilites->minImageExtent.height, capabilites->maxImageExtent.height);
+  }
 }
 
 int isDeviceSuitable(htobj target, VkPhysicalDevice physicalDevice) {
@@ -281,7 +293,7 @@ int createLogicalDevice(htobj target) {
     queueCreateInfo.queueFamilyIndex = uniqueQueueFamilies[i];
     queueCreateInfo.queueCount = 1;
     queueCreateInfo.pQueuePriorities = &queuePriority;
-    queueCreateInfos = dynarr_push(queueCreateInfos, &queueCreateInfo, sizeof(VkDeviceQueueCreateInfo));
+    dynarr_push_m(queueCreateInfos, &queueCreateInfo, sizeof(VkDeviceQueueCreateInfo));
   }
 
   VkPhysicalDeviceFeatures deviceFeatures;
@@ -290,7 +302,7 @@ int createLogicalDevice(htobj target) {
   memset(&createInfo, 0, sizeof(VkDeviceCreateInfo));
   createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
   createInfo.pQueueCreateInfos = (VkDeviceQueueCreateInfo*) queueCreateInfos->dat;
-  createInfo.queueCreateInfoCount = (uint32_t)(arr_length(queueCreateInfos, sizeof(VkDeviceQueueCreateInfo)));
+  createInfo.queueCreateInfoCount = (uint32_t)(arr_length_m(VkDeviceQueueCreateInfo, queueCreateInfos));
   createInfo.pEnabledFeatures = &deviceFeatures;
 
   uint32_t deviceExtensionCount = sizeof(deviceExtensions) / sizeof(char *);
