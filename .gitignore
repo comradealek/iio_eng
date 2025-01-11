@@ -3,3 +3,5 @@ resources/glTF-Sample-Assets/
 bin/main
 bin/tutorial
 .vscode/
+bin/dynarrtest
+objdatest/main.e
