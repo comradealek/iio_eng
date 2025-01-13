@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define clamp(value, min, max) (value < min ? min : (value > max ? max : value))
+#define clamp(value, min, max) ((value) < (min) ? (min) : ((value) > (max) ? (max) : (value)))
 
 const uint32_t HEIGHT = 480;
 const uint32_t WIDTH = 640;
@@ -21,7 +21,7 @@ typedef struct SwapChainSupportDetails_S {
     uint32_t presentModeCount;
 } SwapChainSupportDetails;
 
-const char * validationLayers = "VK_LAYER_KHRONOS_validation";
+const char * validationLayers[] = {"VK_LAYER_KHRONOS_validation"};
 
 #ifndef DEBUG
   const int enableValidationLayers = 0;
@@ -37,6 +37,7 @@ typedef struct HelloTriangleObj_S {
   VkQueue graphicsQueue;
   VkQueue presentQueue;
   VkSurfaceKHR surface;
+  VkSwapchainKHR swapChain;
 } HelloTriangleObj;
 
 typedef struct QueueFamilyIndices_S {
@@ -47,6 +48,33 @@ typedef struct QueueFamilyIndices_S {
 } QueueFamilyIndices;
 
 typedef HelloTriangleObj * htobj;
+
+int checkValidationLayerSupport() {
+  int code = 1;
+  uint32_t layerCount;
+  glad_vkEnumerateInstanceLayerProperties(&layerCount, NULL);
+
+  VkLayerProperties availableLayers[layerCount];
+  glad_vkEnumerateInstanceLayerProperties(&layerCount, availableLayers);
+
+  uint32_t validationLayerCount = sizeof(validationLayers) / sizeof(char *);
+  for (int i = 0; i < validationLayerCount; i++) {
+    int layerFound = 0;
+
+    for (int j = 0; j < layerCount; j++) {
+      if (strcmp(validationLayers[i], availableLayers[j].layerName) == 0) {
+        layerFound = 1;
+        break;
+      }
+    }
+
+    if (!layerFound) {
+      code = 0;
+    }
+  }
+
+  return code;
+}
 
 void initWindow(htobj target) {
   glfwInit();
@@ -62,6 +90,11 @@ void initGLADLibraries(htobj target) {
 
 int createInstance(htobj target) {
   int code = 1;
+
+  if (enableValidationLayers && !checkValidationLayerSupport()) {
+    fprintf(stderr, "validation layers requested but not found\n");
+  }
+
   VkApplicationInfo appInfo;
   memset(&appInfo, 0, sizeof(VkApplicationInfo));
   appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -82,6 +115,13 @@ int createInstance(htobj target) {
   createInfo.enabledExtensionCount = glfwExtensionCount;
   createInfo.ppEnabledExtensionNames = glfwExtensions;
   createInfo.enabledLayerCount = 0;
+
+  if (enableValidationLayers) {
+    createInfo.enabledLayerCount = (uint32_t) (sizeof(validationLayers) / sizeof(char *));
+    createInfo.ppEnabledLayerNames = validationLayers;
+  } else {
+    createInfo.enabledLayerCount = 0;
+  }
 
   if (glad_vkCreateInstance(&createInfo, NULL, &target->instance) != VK_SUCCESS) {
     printf("failed to create instance\n");
@@ -173,44 +213,6 @@ SwapChainSupportDetails querySwapChainSupport(htobj target, VkPhysicalDevice phy
   }
 
   return details;
-}
-
-VkSurfaceFormatKHR chooseSwapSurfaceFormat(SwapChainSupportDetails * details) {
-  VkSurfaceFormatKHR selectedFormat = details->formats[0];
-  for (int i = 0; i < details->formatCount; i++) {
-    if (details->formats[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR && details->formats[i].format == VK_FORMAT_B8G8R8A8_SRGB) {
-      selectedFormat = details->formats[i];
-      break;
-    }
-  }
-
-  return selectedFormat;
-}
-
-VkPresentModeKHR chooseSwapPresentMode (SwapChainSupportDetails * details) {
-  VkPresentModeKHR selectedPresentMode = VK_PRESENT_MODE_FIFO_KHR;
-  for (int i = 0; i < details->presentModeCount; i++) {
-    if (details->presentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR) {
-      selectedPresentMode = details->presentModes[i];
-      break;
-    }
-  }
-
-  return selectedPresentMode;
-}
-
-VkExtent2D chooseSwapExtent(htobj target, VkSurfaceCapabilitiesKHR * capabilites) {
-  VkExtent2D extent;
-  if (capabilites->currentExtent.width != 0xffffffff) {
-    extent = capabilites->currentExtent;
-  } else {
-    int width, height;
-    glfwGetFramebufferSize(target->window, &width, &height);
-    extent.width = (uint32_t) width;
-    extent.height = (uint32_t) height;
-    extent.width = clamp(extent.width, capabilites->minImageExtent.width, capabilites->maxImageExtent.width);
-    extent.height = clamp(extent.height, capabilites->minImageExtent.height, capabilites->maxImageExtent.height);
-  }
 }
 
 int isDeviceSuitable(htobj target, VkPhysicalDevice physicalDevice) {
@@ -318,12 +320,109 @@ int createLogicalDevice(htobj target) {
   return code;
 }
 
+VkSurfaceFormatKHR chooseSwapSurfaceFormat(SwapChainSupportDetails * details) {
+  VkSurfaceFormatKHR selectedFormat = details->formats[0];
+  for (int i = 0; i < details->formatCount; i++) {
+    if (details->formats[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR && details->formats[i].format == VK_FORMAT_B8G8R8A8_SRGB) {
+      selectedFormat = details->formats[i];
+      break;
+    }
+  }
+
+  return selectedFormat;
+}
+
+VkPresentModeKHR chooseSwapPresentMode (SwapChainSupportDetails * details) {
+  VkPresentModeKHR selectedPresentMode = VK_PRESENT_MODE_FIFO_KHR;
+  for (int i = 0; i < details->presentModeCount; i++) {
+    if (details->presentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR) {
+      selectedPresentMode = details->presentModes[i];
+      break;
+    }
+  }
+
+  return selectedPresentMode;
+}
+
+VkExtent2D chooseSwapExtent(htobj target, VkSurfaceCapabilitiesKHR * capabilites) {
+  VkExtent2D extent;
+  if (capabilites->currentExtent.width != 0xffffffff) {
+    extent = capabilites->currentExtent;
+  } else {
+    int width, height;
+    glfwGetFramebufferSize(target->window, &width, &height);
+    extent.width = (uint32_t) width;
+    extent.height = (uint32_t) height;
+    extent.width = clamp(extent.width, capabilites->minImageExtent.width, capabilites->maxImageExtent.width);
+    extent.height = clamp(extent.height, capabilites->minImageExtent.height, capabilites->maxImageExtent.height);
+  }
+  return extent;
+}
+
+int createSwapChain(htobj target) {
+  int code = 1;
+  SwapChainSupportDetails swapChainSupport = querySwapChainSupport(target, target->physicalDevice);
+
+  VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(&swapChainSupport);
+  VkPresentModeKHR presentMode = chooseSwapPresentMode(&swapChainSupport);
+  VkExtent2D swapExtent = chooseSwapExtent(target, &swapChainSupport.capabilities);
+
+  uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
+
+  if (swapChainSupport.capabilities.maxImageCount > 0 && imageCount > swapChainSupport.capabilities.maxImageCount) {
+    imageCount = swapChainSupport.capabilities.maxImageCount;
+  }
+
+  VkSwapchainCreateInfoKHR createInfo;
+  memset(&createInfo, 0, sizeof(VkSwapchainCreateInfoKHR));
+  createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+  createInfo.surface = target->surface;
+  createInfo.minImageCount = imageCount;
+  createInfo.imageFormat = surfaceFormat.format;
+  createInfo.imageColorSpace = surfaceFormat.colorSpace;
+  createInfo.imageExtent = swapExtent;
+  createInfo.imageArrayLayers = 1;
+  createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+  QueueFamilyIndices indices = findQueueFamilies(target, target->physicalDevice);
+  uint32_t queueFamilyIndices[] = {indices.graphicsFamily, indices.presentFamily};
+
+  if (indices.graphicsFamily != indices.presentFamily) {
+    createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+    createInfo.queueFamilyIndexCount = 2;
+    createInfo.pQueueFamilyIndices = queueFamilyIndices;
+  } else {
+    createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    createInfo.queueFamilyIndexCount = 0;
+    createInfo.pQueueFamilyIndices = NULL;
+  }
+
+  createInfo.preTransform = swapChainSupport.capabilities.currentTransform;
+
+  createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+
+  createInfo.presentMode = presentMode;
+  createInfo.clipped = VK_TRUE;
+
+  createInfo.oldSwapchain = VK_NULL_HANDLE;
+
+  memset(&target->swapChain, 0, sizeof(VkSwapchainKHR));
+
+  if (glad_vkCreateSwapchainKHR(target->logicalDevice, &createInfo, NULL, &target->swapChain) != VK_SUCCESS) {
+    fprintf(stderr, "Failed to create swap chain\n");
+  }
+
+  return code;
+}
+
 int initVulkan(htobj target) {
   int code = 1;
   if (code == 1) code = createInstance(target);
   if (code == 1) code = createSurface(target);
   if (code == 1) code = pickPhysicalDevice(target);
+  if (code == 1) ;
   if (code == 1) code = createLogicalDevice(target);
+  if (code == 1) code = createSwapChain(target);
   return code;
 }
 
@@ -333,12 +432,13 @@ void initGLAD(htobj target) {
 }
 
 void mainLoop(htobj target) {
-  while(!glfwWindowShouldClose(target->window)){
+  while (!glfwWindowShouldClose(target->window)) {
     glfwPollEvents();
   }
 }
 
 void cleanup(htobj target) {
+  // glad_vkDestroySwapchainKHR(target->logicalDevice, target->swapChain, NULL);
   glad_vkDestroyDevice(target->logicalDevice, NULL);
   glad_vkDestroySurfaceKHR(target->instance, target->surface, NULL);
   glad_vkDestroyInstance(target->instance, NULL);
