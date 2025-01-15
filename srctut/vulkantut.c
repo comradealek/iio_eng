@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#define DEBUG
+
 #define clamp(value, min, max) ((value) < (min) ? (min) : ((value) > (max) ? (max) : (value)))
 
 const uint32_t HEIGHT = 480;
@@ -22,6 +24,8 @@ typedef struct SwapChainSupportDetails_S {
 } SwapChainSupportDetails;
 
 const char * validationLayers[] = {"VK_LAYER_KHRONOS_validation"};
+
+const char * debug_utils_ext_name = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
 
 #ifndef DEBUG
   const int enableValidationLayers = 0;
@@ -58,6 +62,15 @@ int checkValidationLayerSupport() {
   glad_vkEnumerateInstanceLayerProperties(&layerCount, availableLayers);
 
   uint32_t validationLayerCount = sizeof(validationLayers) / sizeof(char *);
+
+#ifdef DEBUG
+  fprintf(stdout, "validation layer count: %u\n", validationLayerCount);
+  fprintf(stdout, "available layer count:  %u\n", layerCount);
+  for (int i = 0; i < layerCount; i++) {
+    fprintf(stdout, "%s\n", availableLayers[i].layerName);
+  }
+#endif
+
   for (int i = 0; i < validationLayerCount; i++) {
     int layerFound = 0;
 
@@ -76,6 +89,26 @@ int checkValidationLayerSupport() {
   return code;
 }
 
+byteArr * getRequiredExtensions() {
+  uint32_t glfwExtensionCount = 0;
+  const char** glfwExtensions;
+  glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+
+  byteArr * extensions;
+  dynarr_init_m(char *, extensions);
+  dynarr_push_m(extensions, glfwExtensions, sizeof(char *) * glfwExtensionCount);
+
+#ifdef DEBUG
+  dynarr_push_m(extensions, &debug_utils_ext_name, sizeof(char *));
+
+  for (int i = 0; i < dynarr_length_m(char *, extensions); i++) {
+    fprintf(stdout, "%s\n", dynarr_get_m(char *, extensions)[i]);
+  }
+#endif
+
+  return extensions;
+}
+
 void initWindow(htobj target) {
   glfwInit();
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -85,15 +118,19 @@ void initWindow(htobj target) {
 
 void initGLADLibraries(htobj target) {
   int version = gladLoadVulkanUserPtr(NULL, (GLADuserptrloadfunc) glfwGetInstanceProcAddress, NULL);
-  // fprintf(stdout, "%d\n", version);
+#ifdef DEBUG
+  fprintf(stdout, "%d\n", version);
+#endif
 }
 
 int createInstance(htobj target) {
   int code = 1;
 
-  if (enableValidationLayers && !checkValidationLayerSupport()) {
+#ifdef DEBUG
+  if (!checkValidationLayerSupport()) {
     fprintf(stderr, "validation layers requested but not found\n");
   }
+#endif
 
   VkApplicationInfo appInfo;
   memset(&appInfo, 0, sizeof(VkApplicationInfo));
@@ -105,23 +142,23 @@ int createInstance(htobj target) {
   appInfo.apiVersion = VK_API_VERSION_1_0;
   appInfo.pNext = NULL;
 
+
   VkInstanceCreateInfo createInfo;
   memset(&createInfo, 0, sizeof(VkInstanceCreateInfo));
   createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
   createInfo.pApplicationInfo = &appInfo;
-  uint32_t glfwExtensionCount = 0;
-  const char ** glfwExtensions;
-  glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+  byteArr * extensions = getRequiredExtensions();
+  uint32_t glfwExtensionCount = dynarr_length_m(char *, extensions);
   createInfo.enabledExtensionCount = glfwExtensionCount;
-  createInfo.ppEnabledExtensionNames = glfwExtensions;
+  createInfo.ppEnabledExtensionNames = (const char * const *) dynarr_get_m(char *, extensions);
   createInfo.enabledLayerCount = 0;
 
-  if (enableValidationLayers) {
-    createInfo.enabledLayerCount = (uint32_t) (sizeof(validationLayers) / sizeof(char *));
-    createInfo.ppEnabledLayerNames = validationLayers;
-  } else {
-    createInfo.enabledLayerCount = 0;
-  }
+#ifdef DEBUG
+  createInfo.enabledLayerCount = (uint32_t) (sizeof(validationLayers) / sizeof(char *));
+  createInfo.ppEnabledLayerNames = validationLayers;
+#else
+  createInfo.enabledLayerCount = 0;
+#endif
 
   if (glad_vkCreateInstance(&createInfo, NULL, &target->instance) != VK_SUCCESS) {
     printf("failed to create instance\n");
@@ -304,7 +341,7 @@ int createLogicalDevice(htobj target) {
   memset(&createInfo, 0, sizeof(VkDeviceCreateInfo));
   createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
   createInfo.pQueueCreateInfos = (VkDeviceQueueCreateInfo*) queueCreateInfos->dat;
-  createInfo.queueCreateInfoCount = (uint32_t)(arr_length_m(VkDeviceQueueCreateInfo, queueCreateInfos));
+  createInfo.queueCreateInfoCount = (uint32_t)(dynarr_length_m(VkDeviceQueueCreateInfo, queueCreateInfos));
   createInfo.pEnabledFeatures = &deviceFeatures;
 
   uint32_t deviceExtensionCount = sizeof(deviceExtensions) / sizeof(char *);

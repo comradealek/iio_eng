@@ -34,7 +34,7 @@ extern const size_t dyn_d_o;
 #define DYN_C(pArr) *((size_t*)((void*)pArr + dyn_c_o))
 
 // Takes a type and a pointer to a byteArr and templates a calculation for the length
-#define arr_length_m(TYPE, pArr) (DYN_L(pArr) / sizeof(TYPE))
+#define dynarr_length_m(TYPE, pArr) (DYN_L(pArr) / sizeof(TYPE))
 // Takes a type and a pointer to a byteArr and allocates and sets the values for the tracker struct
 #define dynarr_init_m(TYPE, pArr) (pArr = malloc(dyn_d_o + sizeof(TYPE))); (memcpy((void*)pArr + dyn_t_o, &(Tracker){ (size_t) 0, sizeof(TYPE) }, sizeof(Tracker)))
 // Takes a pointer to a byteArr, a pointer to the data to be inserted, and the size of the data and templates a push
