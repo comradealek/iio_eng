@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define DEBUG
+// #define DEBUG
 
 #define clamp(value, min, max) ((value) < (min) ? (min) : ((value) > (max) ? (max) : (value)))
 
@@ -156,8 +156,6 @@ int createInstance(htobj target) {
 #ifdef DEBUG
   createInfo.enabledLayerCount = (uint32_t) (sizeof(validationLayers) / sizeof(char *));
   createInfo.ppEnabledLayerNames = validationLayers;
-#else
-  createInfo.enabledLayerCount = 0;
 #endif
 
   if (glad_vkCreateInstance(&createInfo, NULL, &target->instance) != VK_SUCCESS) {
