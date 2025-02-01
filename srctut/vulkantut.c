@@ -296,7 +296,7 @@ int pickPhysicalDevice(htobj target) {
 }
 
 int createLogicalDevice(htobj target) {
-  int code = 0;
+  int code = 1;
   QueueFamilyIndices indices = findQueueFamilies(target, target->physicalDevice);
 
   byteArr * queueCreateInfos;
@@ -447,7 +447,11 @@ int createSwapChain(htobj target) {
 
   if (glad_vkCreateSwapchainKHR(target->logicalDevice, &createInfo, NULL, &target->swapChain) != VK_SUCCESS) {
     fprintf(stderr, "Failed to create swap chain\n");
+    code = 0;
   }
+
+  if (swapChainSupport.formats) free(swapChainSupport.formats);
+  if (swapChainSupport.presentModes) free(swapChainSupport.presentModes);
 
   return code;
 }
@@ -465,7 +469,9 @@ int initVulkan(htobj target) {
 
 void initGLAD(htobj target) {
   int version = gladLoadVulkanUserPtr(target->physicalDevice, (GLADuserptrloadfunc) glfwGetInstanceProcAddress, target->instance);
-  // fprintf(stdout, "%d\n", version);
+#ifdef DEBUG
+  fprintf(stdout, "%d\n", version);
+#endif
 }
 
 void mainLoop(htobj target) {
@@ -475,7 +481,7 @@ void mainLoop(htobj target) {
 }
 
 void cleanup(htobj target) {
-  // glad_vkDestroySwapchainKHR(target->logicalDevice, target->swapChain, NULL);
+  glad_vkDestroySwapchainKHR(target->logicalDevice, target->swapChain, NULL);
   glad_vkDestroyDevice(target->logicalDevice, NULL);
   glad_vkDestroySurfaceKHR(target->instance, target->surface, NULL);
   glad_vkDestroyInstance(target->instance, NULL);
@@ -493,7 +499,7 @@ void run(htobj target) {
 }
 
 int main(void) {
-  HelloTriangleObj object;
+  HelloTriangleObj object = {0};
   run(&object);
   return 0;
 }
