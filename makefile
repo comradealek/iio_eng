@@ -8,18 +8,24 @@ tutobjs := $(srctut:srctut/%.c=tutobj/%.o)
 glfwobjs := $(srcglfw:GLFWsrc/%.c=glfwobj/%.o)
 objdatest := $(srcdat:srcdynarrtest/%.c=objdatest/%.o)
 
+shad := $(shell echo src/shaders/*.glsl)
+shadtut := $(shell echo srctut/shaders/*.glsl)
+
+spv := $(shad:src/shaders/%.glsl=src/shaders/%.spv)
+spvtut := $(shadtut:srctut/shaders/%.glsl=srctut/shaders/%.spv)
+
 tout := bin/tutorial
 mout := bin/main
 dout := bin/dynarrtest
 
-libs := -ldl -lm -lrt
+libs := -ldl -lm -lrt -lvulkan
 includes := -Iinclude
 glfwincludes := -IGLFWsrc
 cflags := -O3 -g -D_GLFW_WAYLAND
 
-main : $(mout)
+main : $(mout) $(spv)
 
-tutorial : $(tout)
+tutorial : $(tout) $(spvtut)
 
 dynarrtest : $(dout)
 
@@ -44,8 +50,14 @@ glfwobj/%.o : GLFWsrc/%.c
 objdatest/%.o : srcdynarrtest/%.c
 	gcc -c $< -o $@ $(includes) $(cflags)
 
+src/shaders/%.spv : src/shaders/%.glsl
+	glslc $< -o $@
+
+srctut/shaders/%.spv : srctut/shaders/%.glsl
+	glslc $< -o $@
+
 clean : 
-	rm $(objs) $(glfwobjs) $(tutobjs) bin/main bin/tutorial
+	rm $(objs) $(glfwobjs) $(tutobjs) bin/main bin/tutorial $(spvtut)
 
 testreset :
 	rm objdatest/*.o bin/dynarrtest

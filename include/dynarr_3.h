@@ -41,6 +41,10 @@ extern const size_t dyn_d_o;
 #define dynarr_push_m(pArr, pDat, size) (pArr = (((DYN_L(pArr) + (size)) > DYN_C(pArr)) ? resize_arr(pArr, (size)) : pArr)); (memcpy((void*)pArr + dyn_d_o + DYN_L(pArr), pDat, (size))); (DYN_L(pArr) += (size))
 // Takes a type, a byteArr pointer and gives array access, eg "dynarr_get_m(uint32_t, array)[index]"
 #define dynarr_get_m(TYPE, pArr) ((TYPE *)pArr->dat)
+// Resizes an array to fit the 
+#define dynarr_expand_m(TYPE, intCount, pArr) \
+while(DYN_C(pArr) < DYN_L(pArr) + (sizeof(TYPE) * intCount)) {DYN_C(pArr) *= 2;} \
+pArr = realloc(pArr, dyn_d_o + DYN_C(pArr))
 
 void * init_arr(size_t datasize);
 void * dynarr_init(size_t datasize);
