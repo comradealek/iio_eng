@@ -2,6 +2,8 @@
 #include "GLFW/glfw3.h"
 #include <stdio.h>
 #include <string.h>
+#include "iio_vulkan_api.h"
+#include "iio_eng_typedef.h"
 
 int main(void) {
   if (!glfwInit()) {
