@@ -2100,7 +2100,20 @@ int createDepthResources(pAsobj obj) {
   return code;
 }
 
+void loadObjFile(pAsobj obj, const char * filename) {
+  
+}
 
+void loadModelFromFile(pAsobj obj, const char * filename) {
+  fprintf(stdout, "Loading model from file: %s\n", filename);
+  
+}
+
+int loadModel(pAsobj obj) {
+  int code = 1;
+
+  return code;
+}
 
 int cleanupSwapChain(pAsobj obj) {
   // fprintf(stdout, "Cleaning up swap chain\n");
