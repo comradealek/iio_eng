@@ -2100,13 +2100,23 @@ int createDepthResources(pAsobj obj) {
   return code;
 }
 
+void loadGLTFFile(pAsobj obj, const char * filename) {
+}
+
 void loadObjFile(pAsobj obj, const char * filename) {
-  
+  fprintf(stdout, "OBJ not implemented yet\n");
 }
 
 void loadModelFromFile(pAsobj obj, const char * filename) {
   fprintf(stdout, "Loading model from file: %s\n", filename);
-  
+  size_t length = strlen(filename);
+  if (length > 4 && strcmp(filename + length - 4, ".gltf") == 0) {
+    loadGLTFFile(obj, filename);
+  } else if (length > 4 && strcmp(filename + length - 4, ".obj") == 0) {
+    loadObjFile(obj, filename);
+  } else {
+    fprintf(stderr, "File format not supported: %s\n", filename);
+  }
 }
 
 int loadModel(pAsobj obj) {
