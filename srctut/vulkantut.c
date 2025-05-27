@@ -19,6 +19,38 @@
 
 #define ATTRIBUTE_COUNT 3
 
+typedef struct QueueFamilyIndices_S {
+  uint32_t graphicsFamily;
+  uint32_t hasGraphicsFamily;
+  uint32_t presentFamily;
+  uint32_t hasPresentFamily;
+} QueueFamilyIndices;
+
+typedef struct SwapChainSupportDetails_S {
+  VkSurfaceCapabilitiesKHR capabilities;
+  VkSurfaceFormatKHR * formats;
+  uint32_t formatCount;
+  VkPresentModeKHR * presentModes;
+  uint32_t presentModeCount;
+} SwapChainSupportDetails;
+
+typedef struct ShaderSource_S {
+  uint32_t * data;
+  uint32_t codeSize;
+} ShaderSource;
+
+typedef struct Vertex_S {
+  vec3 pos;
+  vec3 color;
+  vec2 texCoord;
+} Vertex;
+
+typedef struct UniformBufferObject_S {
+  mat4 model;
+  mat4 view;
+  mat4 proj;
+} UniformBufferObject;
+
 typedef struct AppStruct_S {
   //Needs to be cleaned up
   GLFWwindow* window;
@@ -55,9 +87,6 @@ typedef struct AppStruct_S {
   uint32_t vertexCount;
   uint32_t * indices;
   uint32_t indexCount;
-
-  VkBuffer vertexBuffer;
-  VkDeviceMemory vertexBufferMemory;
   
   VkBuffer * uniformBuffers;
   VkDeviceMemory * uniformBuffersMemory;
@@ -75,38 +104,6 @@ typedef struct AppStruct_S {
   VkExtent2D swapChainExtent;
   uint32_t currentFrame;
 } AppStruct;
-
-typedef struct QueueFamilyIndices_S {
-  uint32_t graphicsFamily;
-  uint32_t hasGraphicsFamily;
-  uint32_t presentFamily;
-  uint32_t hasPresentFamily;
-} QueueFamilyIndices;
-
-typedef struct SwapChainSupportDetails_S {
-  VkSurfaceCapabilitiesKHR capabilities;
-  VkSurfaceFormatKHR * formats;
-  uint32_t formatCount;
-  VkPresentModeKHR * presentModes;
-  uint32_t presentModeCount;
-} SwapChainSupportDetails;
-
-typedef struct ShaderSource_S {
-  uint32_t * data;
-  uint32_t codeSize;
-} ShaderSource;
-
-typedef struct Vertex_S {
-  vec3 pos;
-  vec3 color;
-  vec2 texCoord;
-} Vertex;
-
-typedef struct UniformBufferObject_S {
-  mat4 model;
-  mat4 view;
-  mat4 proj;
-} UniformBufferObject;
 
 typedef AppStruct * pAsobj;
 
@@ -1824,6 +1821,8 @@ int createSwapChain(pAsobj obj) {
 #endif
   obj->swapChainImageFormat = surfaceFormat.format;
   obj->swapChainExtent = extent;
+  free(swapChainSupport.formats);
+  free(swapChainSupport.presentModes);
   return code;
 }
 
@@ -1966,6 +1965,9 @@ int selectPhysicalDevice(pAsobj obj) {
     code = 0;
   } else {
     fprintf(stdout, "found %d GPUs\n", deviceCount);
+    for (int i = 0; i < deviceCount; i++) {
+      fprintf(stdout, "device %d: %s", i + 1, devices[i]);
+    }
   }
 
   for (int i = 0; i < deviceCount; i++) {
