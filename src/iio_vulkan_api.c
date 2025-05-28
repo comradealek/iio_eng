@@ -126,8 +126,6 @@ void iio_select_physical_device() {
   VkSurfaceFormatKHR preferredSurfaceFormatPerDevice [deviceCount];
   VkPresentModeKHR preferredPresentModePerDevice [deviceCount];
   VkSurfaceCapabilitiesKHR surfaceCapabilitiesPerDevice [deviceCount];
-  VkSurfaceFormatKHR preferredSurfaceFormatPerDevice [deviceCount];
-  VkPresentModeKHR preferredPresentModePerDevice [deviceCount];
 
   //  begin iterating over the device array
   for (uint32_t i = 0; i < deviceCount; i++) {
