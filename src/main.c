@@ -10,5 +10,6 @@ int main(void) {
   IIOVulkanState * state = iio_init_vulkan_api();
   iio_init_error();
   iio_init_vulkan();
+  fprintf(stdout, "Vulkan initialized successfully.\n");
   iio_run();
 }
