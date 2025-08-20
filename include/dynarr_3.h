@@ -34,17 +34,41 @@ extern const size_t dyn_d_o;
 #define DYN_C(pArr) *((size_t*)((void*)pArr + dyn_c_o))
 
 // Takes a type and a pointer to a byteArr and templates a calculation for the length
-#define dynarr_length_m(TYPE, pArr) (DYN_L(pArr) / sizeof(TYPE))
+#define dynarr_length_m(TYPE, pArr) \
+  (DYN_L(pArr) / sizeof(TYPE))
 // Takes a type and a pointer to a byteArr and allocates and sets the values for the tracker struct
-#define dynarr_init_m(TYPE, pArr) (pArr = malloc(dyn_d_o + sizeof(TYPE))); (memcpy((void*)pArr + dyn_t_o, &(Tracker){ (size_t) 0, sizeof(TYPE) }, sizeof(Tracker)))
+#define dynarr_init_m(TYPE, pArr) \
+  do { \
+    (pArr = malloc(dyn_d_o + sizeof(TYPE))); \
+    (memcpy((void*)pArr + dyn_t_o, &(Tracker){ (size_t) 0, sizeof(TYPE) }, sizeof(Tracker))); \
+  } while (0)
 // Takes a pointer to a byteArr, a pointer to the data to be inserted, and the size of the data and templates a push
-#define dynarr_push_m(pArr, pDat, size) (pArr = (((DYN_L(pArr) + (size)) > DYN_C(pArr)) ? resize_arr(pArr, (size)) : pArr)); (memcpy((void*)pArr + dyn_d_o + DYN_L(pArr), pDat, (size))); (DYN_L(pArr) += (size))
+#define dynarr_push_m(pArr, pDat, size) \
+  do { \
+    (pArr = (((DYN_L(pArr) + (size)) > DYN_C(pArr)) ? resize_arr(pArr, (size)) : pArr)); \
+    (memcpy((void*)pArr + dyn_d_o + DYN_L(pArr), pDat, (size))); \
+    (DYN_L(pArr) += (size)); \
+  } while (0)
+// Takes a type, a pointer to a byteArr, and a pointer to a return value and returns a pointer to the data at the end of the array and reduces the length by the size of the type
+#define dynarr_pop_m(TYPE, pArr, pRet) \
+  do { \
+    size_t len = pArr->t.length / sizeof(TYPE); \
+    if (len > 0) { \
+      *(pRet) = ((TYPE *)pArr->dat)[len - 1]; \
+      pArr->t.length -= sizeof(TYPE); \
+    } \
+  } while (0)
 // Takes a type, a byteArr pointer and gives array access, eg "dynarr_get_m(uint32_t, array)[index]"
-#define dynarr_get_m(TYPE, pArr) ((TYPE *)pArr->dat)
+#define dynarr_get_m(TYPE, pArr) \
+  ((TYPE *)pArr->dat)
 // Resizes an array to fit the 
 #define dynarr_expand_m(TYPE, intCount, pArr) \
-while(DYN_C(pArr) < DYN_L(pArr) + (sizeof(TYPE) * intCount)) {DYN_C(pArr) *= 2;} \
-pArr = realloc(pArr, dyn_d_o + DYN_C(pArr))
+  do { \
+    while(DYN_C(pArr) < DYN_L(pArr) + (sizeof(TYPE) * intCount)) { \
+      DYN_C(pArr) *= 2;\
+    } \
+    pArr = realloc(pArr, dyn_d_o + DYN_C(pArr)); \
+  } while (0)
 
 void * init_arr(size_t datasize);
 void * dynarr_init(size_t datasize);

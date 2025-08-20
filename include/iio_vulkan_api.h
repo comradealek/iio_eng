@@ -4,103 +4,94 @@
 #include <stdint.h>
 #include "cglm/cglm.h"
 #include "iio_eng_typedef.h"
+#include "iio_resource_loaders.h"
+#include "iio_descriptors.h"
 
 #define DEFAULT_WINDOW_WIDTH 640
 #define DEFAULT_WINDOW_HEIGHT 480
+#define MAX_FRAMES_IN_FLIGHT 2
 
 #define clamp(x, min, max) ((x) < (min) ? (min) : ((x) > (max) ? (max) : (x)))
 #define min(x,y) ((x) < (y) ? (x) : (y))
 #define max(x,y) ((x) > (y) ? (x) : (y))
 
-// #define PHYSICAL_DEVICE_DESCRIPTION_MAX 2048
+typedef struct TestCubeData_S {
+  bool                                      isInitialized;
 
-// typedef struct UniformBufferObject_S {
-//   mat4 model;
-//   mat4 view;
-//   mat4 projection;
-// } UniformBufferObject;
+  Vertex                                    vertices [8];
+  VkBuffer                                  vertexBuffer;
+  VkDeviceMemory                            vertexBufferMemory;
+  
+  uint32_t                                  indices [36];
+  VkBuffer                                  indexBuffer;
+  VkDeviceMemory                            indexBufferMemory;
 
-// typedef struct DataBuffer_S {
-//   uint32_t size;
-//   uint32_t data [];
-// } DataBuffer;
+  IIOImageHandle                            textureImage;
+  VkDescriptorSet                           texSamplerDescriptorSets [MAX_FRAMES_IN_FLIGHT];
 
-// typedef struct Vertex_S {
-//   vec3 position;
-//   vec3 color;
-//   vec3 texCoord;
-// } Vertex;
+  
+  ModelUniformBufferData                    modelUniformBufferData [MAX_FRAMES_IN_FLIGHT];
+  VkBuffer                                  modelUniformBuffer [MAX_FRAMES_IN_FLIGHT];
+  VkDeviceMemory                            modelUniformBufferMemory [MAX_FRAMES_IN_FLIGHT];
+  void *                                    modelUniformBufferMapped [MAX_FRAMES_IN_FLIGHT];
+  VkDescriptorSet                           modelUniformBufferDescriptorSets [MAX_FRAMES_IN_FLIGHT];
+} TestCubeData;
 
-// typedef struct IIOVulkanCamera_S {
-//   vec3 position;
-//   vec3 front;
-//   vec3 up;
-//   vec3 right;
-//   vec3 forward;
-//   float yaw;
-//   float pitch;
-//   float fov;
-// } IIOVulkanCamera;
+typedef struct DataBuffer_S {
+  uint32_t size;
+  uint32_t data [];
+} DataBuffer;
 
-// typedef struct IIOVulkanState_S {
-//   VkInstance instance;
-//   GLFWwindow * window;
-//   VkSurfaceKHR surface;
-//   VkPhysicalDevice * physicalDevices;
-//   // char (* physicalDeviceDescription) [PHYSICAL_DEVICE_DESCRIPTION_MAX];
-//   VkPhysicalDevice selectedDevice;
-//   VkDevice device;
-//   VkSwapchainKHR swapChain;
-//   uint32_t swapChainImageCount;
-//   VkImage * swapChainImages;
-//   VkImageView * swapChainImageViews;
-//   VkFramebuffer * framebuffers;
-//   VkRenderPass renderPass;
-//   VkDescriptorSetLayout descriptorSetLayout;
-//   VkPipelineLayout pipelineLayout;
-//   VkPipeline graphicsPipeline;
+typedef struct IIOVulkanState_S {
+  VkInstance instance;
+  GLFWwindow * window;
+  VkSurfaceKHR surface;
+  VkPhysicalDevice * physicalDevices;
+  VkPhysicalDevice selectedDevice;
+  VkDevice device;
+  VkSwapchainKHR swapChain;
+  uint32_t swapChainImageCount;
+  VkImage * swapChainImages;
+  VkImageView * swapChainImageViews;
 
-//   VkCommandPool commandPool;
-//   VkCommandBuffer * commandBuffers;
+  VkCommandPool commandPool;
+  VkCommandBuffer * commandBuffers;
 
-//   //  Buffers for test cube and texture
-//   VkBuffer vertexBuffer;
-//   VkDeviceMemory vertexBufferMemory;
-//   VkBuffer indexBuffer;
-//   VkDeviceMemory indexBufferMemory;
-//   VkImage textureImage;
-//   VkDeviceMemory textureImageMemory;
-//   VkImageView textureImageView;
-//   VkSampler textureSampler;
-//   //  end of test cube data
+  VkBuffer globalUniformBuffers [2];
+  VkDeviceMemory globalUniformBuffersMemory [2];
+  void * globalUniformBuffersMapped [2];
+  VkDescriptorSet cameraDescriptorSets [2];
 
-//   VkBuffer * uniformBuffers;
-//   VkDeviceMemory * uniformBuffersMemory;
-//   void ** uniformBuffersMapped;
+  IIOGraphicsPipelineManager graphicsPipelineManger;
 
-//   VkDescriptorPool descriptorPool;
-//   VkDescriptorSet * descriptorSets;
+  uint32_t descriptorPoolManagerCount;
+  IIODescriptorPoolManager * descriptorPoolMangers;
 
-//   VkSemaphore * imageAvailableSemaphores;
-//   VkSemaphore * renderFinishedSemaphores;
-//   VkFence * inFlightFences;
+  VkSemaphore * imageAvailableSemaphores;
+  VkSemaphore * renderFinishedSemaphores;
+  VkFence * inFlightFences;
 
-//   VkImage depthImage;
-//   VkDeviceMemory depthImageMemory;
-//   VkImageView depthImageView;
+  VkImage depthImage;
+  VkDeviceMemory depthImageMemory;
+  VkImageView depthImageView;
 
-//   VkSurfaceFormatKHR surfaceFormat;
-//   VkPresentModeKHR presentMode;
-//   VkSurfaceCapabilitiesKHR surfaceCapabilities;
-//   VkExtent2D swapChainImageExtent;
-//   uint32_t graphicsQueueFamilyIndex;
-//   uint32_t presentQueueFamilyIndex;
-//   VkQueue graphicsQueue;
-//   VkQueue presentQueue;
+  VkSurfaceFormatKHR surfaceFormat;
+  VkPresentModeKHR presentMode;
+  VkSurfaceCapabilitiesKHR surfaceCapabilities;
+  VkExtent2D swapChainImageExtent;
+  uint32_t graphicsQueueFamilyIndex;
+  uint32_t presentQueueFamilyIndex;
+  VkQueue graphicsQueue;
+  VkQueue presentQueue;
 
-//   uint32_t currentFrame;
-//   uint8_t framebufferResized;
-// } IIOVulkanState;
+  uint32_t currentFrame;
+  uint8_t framebufferResized;
+
+  IIODescriptorSetWriter descriptorSetWriter;
+
+  IIOResourceManager resourceManager;
+
+} IIOVulkanState;
 
 IIOVulkanState * iio_init_vulkan_api();
 
@@ -120,13 +111,19 @@ void iio_create_swapchain();
 
 void iio_create_swapchain_image_views();
 
-void iio_create_render_pass();
+void iio_create_application_descriptor_pools();
 
-void iio_create_descriptor_set_layout();
+void iio_create_descriptor_pool_managers_testcube();
 
-void iio_create_graphics_pipeline();
+void iio_initialize_testcube();
 
-void iio_create_framebuffers();
+void iio_initialize_camera();
+
+void iio_create_application_graphics_pipeline();
+
+void iio_create_graphics_pipeline_testtriangle();
+
+void iio_create_graphics_pipeline_testcube();
 
 void iio_create_command_pool();
 
@@ -134,19 +131,31 @@ void iio_create_depth_resources();
 
 static VkFormat iio_find_depth_format();
 
-void iio_create_vertex_buffer();
+void iio_create_vertex_buffer_testcube();
 
-void iio_create_index_buffer();
+void iio_create_index_buffer_testcube();
 
 void iio_create_uniform_buffers();
 
-void iio_create_descriptor_pool();
+void iio_create_uniform_buffer(VkDevice device, VkDeviceSize bufferSize, VkBuffer * buffer, VkDeviceMemory * bufferMemory, void ** bufferMapped);
+
+void iio_create_descriptor_pool_api();
 
 void iio_create_descriptor_sets();
 
 void iio_create_command_buffers();
 
 void iio_create_synchronization_objects();
+
+void iio_initialize_resource_loader();
+
+void iio_create_texture_image_func(const char * path, VkImage * image, VkDeviceMemory * imageMemory, VkImageView * imageView);
+
+void iio_create_texture_image_from_memory_func(const uint8_t * data, size_t dataSize, VkImage * image, VkDeviceMemory * imageMemory, VkImageView * imageView);
+
+void iio_create_texture_image_from_pixels_func(const uint8_t * pixels, size_t width, size_t height, VkImage * image, VkDeviceMemory * imageMemory, VkImageView * imageView);
+
+void iio_create_image_sampler_func(const VkSamplerCreateInfo * createInfo, VkSampler * sampler);
 
 DataBuffer * iio_read_shader_file_to_buffer(const char * path);
 
@@ -182,9 +191,13 @@ VkCommandBuffer iio_begin_single_time_commands();
 
 void iio_end_single_time_commands(VkCommandBuffer commandBuffer);
 
-void iio_update_uniform_buffer(uint32_t currentFrame);
+void iio_update_camera_uniform_buffer(uint32_t currentFrame);
 
 void iio_create_texture_image(const char * path, VkImage * textureImage, VkDeviceMemory * textureImageMemory);
+
+void iio_create_texture_image_from_memory(const uint8_t * data, int size, VkImage * textureImage, VkDeviceMemory * textureImageMemory);
+
+void iio_create_texture_image_from_pixels(const uint8_t * pixels, int width, int height, VkImage * textureImage, VkDeviceMemory * textureImageMemory);
 
 void iio_create_texture_image_view(VkImage textureImage, VkImageView * textureImageView);
 
@@ -225,7 +238,9 @@ void iio_run();
 
 void draw_frame();
 
-void iio_record_command_buffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+void iio_record_testtriangle_command_buffer(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame);
+
+void iio_record_testcube_command_buffer(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame);
 
 void iio_recreate_swapchain();
 

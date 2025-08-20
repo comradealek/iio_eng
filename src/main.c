@@ -5,6 +5,7 @@
 #include "iio_vulkan_api.h"
 #include "iio_eng_typedef.h"
 #include "iio_eng_errors.h"
+#include "iio_resource_loaders.h"
 
 int main(void) {
   IIOVulkanState * state = iio_init_vulkan_api();

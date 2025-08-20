@@ -21,7 +21,7 @@ dout := bin/dynarrtest
 libs := -ldl -lm -lrt -lvulkan
 includes := -Iinclude
 glfwincludes := -IGLFWsrc
-cflags := -O3 -g -D_GLFW_WAYLAND
+cflags := -O0 -g -D_GLFW_WAYLAND
 
 main : $(mout) $(spv)
 
