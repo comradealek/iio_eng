@@ -14,10 +14,7 @@ layout(set = 1, binding =  4) uniform sampler2D emissiveSampler;
 layout(set = 1, binding =  5) uniform MaterialUBO {
   vec4 baseColorFactor;
   vec4 emissiveFactor;
-  float metallicFactor;
-  float roughnessFactor;
-  float normalScale;
-  float occlusionStrength;
+  vec4 metallicRoughnessNormalOcclusionScale;
   float alphacutoff;
   int texCoordIndex;
 } material;

@@ -20,11 +20,9 @@ typedef struct ModelUniformBufferData_S {
 typedef struct MaterialUniformBufferData_S {
   vec4 baseColorFactor;
   vec4 emissiveFactor;
-  alignas(16) float metallicFactor;
-  alignas(16) float roughnessFactor;
-  alignas(16) float normalScale;
-  alignas(16) float occlusionStrength;
+  vec4 metallicRoughnessNormalOcclusionScale;
   alignas(16) float alphaCutoff;
+  alignas(16) int   texCoordIndex;
 } MaterialUniformBufferData;
 
 typedef struct Vertex_S {

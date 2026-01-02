@@ -91,6 +91,8 @@ typedef struct IIOVulkanState_S {
 
   IIOResourceManager resourceManager;
 
+  IIOModel testModel;
+
 } IIOVulkanState;
 
 IIOVulkanState * iio_init_vulkan_api();
@@ -111,7 +113,7 @@ void iio_create_swapchain();
 
 void iio_create_swapchain_image_views();
 
-void iio_create_application_descriptor_pools();
+void iio_create_application_descriptor_pool_managers();
 
 void iio_create_descriptor_pool_managers_testcube();
 
@@ -238,9 +240,13 @@ void iio_run();
 
 void draw_frame();
 
+void iio_record_render_to_command_buffer(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame);
+
 void iio_record_testtriangle_command_buffer(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame);
 
 void iio_record_testcube_command_buffer(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame);
+
+void iio_record_primitive_command_buffer(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame, IIOPrimitive * primitive);
 
 void iio_recreate_swapchain();
 

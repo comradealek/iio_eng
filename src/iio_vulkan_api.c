@@ -135,7 +135,7 @@ void iio_init_vulkan() {
     iio_initialize_testcube();
     iio_initialize_camera();
   } else {
-    iio_create_application_descriptor_pools();
+    iio_create_application_descriptor_pool_managers();
     iio_create_application_graphics_pipeline();
   }
 }
@@ -210,7 +210,7 @@ void iio_create_window() {
   glfwSetCursorPosCallback(state.window, iio_cursor_position_callback);
   glfwSetScrollCallback(state.window, iio_scroll_callback);
   // glfwSetKeyCallback(state.window, iio_key_callback);
-  // glfwSetInputMode(state.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+  glfwSetInputMode(state.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 }
 
 void iio_create_surface() {
@@ -473,8 +473,44 @@ void iio_create_swapchain_image_views() {
   }
 }
 
-void iio_create_application_descriptor_pools() {
+void iio_create_application_descriptor_pool_managers() {
+  fprintf(stdout, "creating descriptor pool managers for application\n");
+  int descriptorPoolSetCount = 3;
+  state.descriptorPoolManagerCount = descriptorPoolSetCount;
+  state.descriptorPoolMangers = malloc(sizeof(IIODescriptorPoolManager) * descriptorPoolSetCount);
 
+  iio_create_descriptor_pool_manager(
+    state.device,
+    1, (IIODescriptorLayoutElement []) {
+      {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT}
+    },
+    MAX_FRAMES_IN_FLIGHT, 2,
+    &state.descriptorPoolMangers[0]
+  );
+
+  iio_create_descriptor_pool_manager(
+    state.device,
+    2, (IIODescriptorLayoutElement []) {
+      {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5, VK_SHADER_STAGE_VERTEX_BIT},
+      {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT}
+    },
+    MAX_FRAMES_IN_FLIGHT, 2,
+    &state.descriptorPoolMangers[1]
+  );
+
+  iio_create_descriptor_pool_manager(
+    state.device,
+    1, (IIODescriptorLayoutElement []) {
+      {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT}
+    },
+    MAX_FRAMES_IN_FLIGHT, 2,
+    &state.descriptorPoolMangers[2]
+  );
+
+  // TODO remove this when the camera api is fully implemented
+  for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+    state.cameraDescriptorSets[i] = iio_allocate_descriptor_set(state.device, &state.descriptorPoolMangers[0]);
+  }
 }
 
 void iio_create_descriptor_pool_managers_testcube() {
@@ -526,11 +562,107 @@ void iio_create_descriptor_pool_managers_testcube() {
 }
 
 void iio_create_application_graphics_pipeline() {
+  fprintf(stdout, "Creating shader pipeline for test cube\n");
+  DataBuffer * vertShaderCode = iio_read_shader_file_to_buffer("src/shaders/vertex.spv");
+  if (!vertShaderCode) {
+    fprintf(stderr, "Failed to read vertex shader file\n");
+    exit(1);
+  }
+  DataBuffer * fragShaderCode = iio_read_shader_file_to_buffer("src/shaders/fragment.spv");
+  if (!fragShaderCode) {
+    fprintf(stderr, "Failed to read fragment shader file\n");
+    free(vertShaderCode);
+    exit(1);
+  }
+  VkShaderModule vertShaderModule = iio_create_shader_module(vertShaderCode);
+  if (vertShaderModule == VK_NULL_HANDLE) {
+    fprintf(stderr, "Failed to create vertex shader module\n");
+    free(vertShaderCode);
+    free(fragShaderCode);
+    exit(1);
+  }
+  fprintf(stdout, "Vertex shader module created successfully.\n");
+  VkShaderModule fragShaderModule = iio_create_shader_module(fragShaderCode);
+  if (fragShaderModule == VK_NULL_HANDLE) {
+    fprintf(stderr, "Failed to create fragment shader module\n");
+    vkDestroyShaderModule(state.device, vertShaderModule, NULL);
+    free(vertShaderCode);
+    free(fragShaderCode);
+    exit(1);
+  }
+  fprintf(stdout, "Fragment shader module created successfully.\n");
+  free(vertShaderCode);
+  free(fragShaderCode);
+
+  fprintf(stdout, "creating graphics pipeline state\n");
+  IIOGraphicsPipelineStates pipelineState = iio_create_graphics_pipeline_state();
   
+  iio_create_shader_stage_create_info(
+    2, 
+    (VkShaderStageFlagBits [2]) {VK_SHADER_STAGE_VERTEX_BIT, VK_SHADER_STAGE_FRAGMENT_BIT}, 
+    (VkShaderModule [2]) {vertShaderModule, fragShaderModule},
+    &pipelineState
+  );
+  
+  iio_set_vertex_input_state_create_info(
+    1, &(VkVertexInputBindingDescription) {.binding = 0, .stride = sizeof(Vertex), .inputRate = VK_VERTEX_INPUT_RATE_VERTEX},
+    3, (VkVertexInputAttributeDescription [3]) {
+      {.binding = 0, .location = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = offsetof(Vertex, position)},
+      {.binding = 0, .location = 1, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = offsetof(Vertex, color)},
+      {.binding = 0, .location = 2, .format = VK_FORMAT_R32G32_SFLOAT, .offset = offsetof(Vertex, texCoord)}
+    },
+    &pipelineState
+  );
+
+  iio_set_input_assembly_state_create_info( VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, false, &pipelineState);
+
+  iio_set_tessellation_state_create_info(&pipelineState);
+
+  iio_set_viewport_state_create_info(1, NULL, 1, NULL, &pipelineState);
+
+  iio_set_rasterization_state_create_info(
+    VK_FALSE, VK_FALSE, 
+    VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE, 
+    VK_FALSE, 0, 0, 0, 1.0f, 
+    &pipelineState
+  );
+  
+  iio_set_multisample_state_create_info(VK_SAMPLE_COUNT_1_BIT, VK_FALSE, 1.0f, NULL, VK_FALSE, VK_FALSE, &pipelineState);
+
+  iio_set_depth_stencil_state_create_info(0, VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS, VK_FALSE, VK_FALSE, (VkStencilOpState) {0}, (VkStencilOpState) {0}, 0, 0, &pipelineState);
+
+  VkPipelineColorBlendAttachmentState colorBlendAttachment = {
+    .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
+    .blendEnable = VK_FALSE,
+  };
+  iio_set_color_blend_state_create_info(0, VK_FALSE, VK_LOGIC_OP_COPY, 1, &colorBlendAttachment, (float [4]) {0, 0, 0, 0}, &pipelineState);
+
+  iio_set_dynamic_state_create_info(2, (VkDynamicState [2]) {VK_DYNAMIC_STATE_SCISSOR, VK_DYNAMIC_STATE_VIEWPORT}, &pipelineState);
+
+  iio_set_rendering_info(&state.surfaceFormat.format, iio_find_depth_format(), 0, &pipelineState);
+
+  
+
+  uint32_t setLayoutCount = state.descriptorPoolManagerCount;
+  VkDescriptorSetLayout setLayouts [setLayoutCount];
+  for (uint32_t i = 0; i < setLayoutCount; i++) {
+    setLayouts[i] = state.descriptorPoolMangers[i].descriptorSetLayout;
+  }
+  iio_create_graphics_pipeline_layout(
+    state.device, 
+    state.descriptorPoolManagerCount, setLayouts,
+    0, NULL,
+    &state.graphicsPipelineManger
+  );
+
+  iio_create_graphics_pipeline(state.device, &state.graphicsPipelineManger, true, VK_NULL_HANDLE, 0, &pipelineState);
+
+  vkDestroyShaderModule(state.device, vertShaderModule, NULL);
+  vkDestroyShaderModule(state.device, fragShaderModule, NULL);
 }
 
 void iio_create_graphics_pipeline_testtriangle() {
-  fprintf(stdout, "Creating shader pipeline\n");
+  fprintf(stdout, "Creating shader pipeline for test triangle\n");
   VkShaderModule vertShaderModule, fragShaderModule;
   {
     DataBuffer * vertShaderCode = iio_read_shader_file_to_buffer("src/shaders/testtrianglevert.spv");
@@ -622,7 +754,7 @@ void iio_create_graphics_pipeline_testtriangle() {
 }
 
 void iio_create_graphics_pipeline_testcube() {
-  fprintf(stdout, "Creating shader pipeline.\n");
+  fprintf(stdout, "Creating shader pipeline for test cube\n");
   DataBuffer * vertShaderCode = iio_read_shader_file_to_buffer("src/shaders/testcubevert.spv");
   if (!vertShaderCode) {
     fprintf(stderr, "Failed to read vertex shader file\n");
@@ -1836,29 +1968,26 @@ void iio_run() {
   double checkInterval = 10.0f;
   double currentTime;
   double lastTime = 0.0f;
+  fprintf(stdout, "camera details:\n\n\n\n\n\n");
   while (!glfwWindowShouldClose(state.window)) {
     currentTime = glfwGetTime();
     deltaTime = currentTime - lastTime;
     lastTime = currentTime;
 
-    if (currentTime >= nextCheck) {
-      fprintf(stdout, "camera details:\n");
-      fprintf(stdout, "\tposition:\t%f, %f, %f\n", camera.position[0], camera.position[1], camera.position[2]);
-      fprintf(stdout, "\tfront:   \t%f, %f, %f\n", camera.front[0],    camera.front[1],    camera.front[2]);
-      fprintf(stdout, "\tyaw:     \t%f\n", camera.yaw);
-      fprintf(stdout, "\tpitch:   \t%f\n", camera.pitch);
-      nextCheck += checkInterval;
-    }
+    // prints out the camera information
+    fprintf(stdout, "\r\033[5A");
+    fprintf(stdout, "\033[2K\tposition:\t%.2f, %.2f, %.2f\n", camera.position[0], camera.position[1], camera.position[2]);
+    fprintf(stdout, "\033[2K\tfront:   \t%.2f, %.2f, %.2f\n", camera.front[0], camera.front[1], camera.front[2]);
+    fprintf(stdout, "\033[2K\tyaw:     \t%.2f\n", camera.yaw);
+    fprintf(stdout, "\033[2K\tpitch:   \t%.2f\n", camera.pitch);
+    fprintf(stdout, "\033[2KFPS: %10.0f\n", 1.0f/deltaTime);
 
     code = 0;
     iio_process_input(state.window, &code);
-    if (code == 1) {
-      fprintf(stdout, "FPS: %f\n", 1.0f / deltaTime);
-    }
     glfwPollEvents();
     draw_frame();
-    double sleepTime = 1000.0f * ((1.0f / 400) - (glfwGetTime() - currentTime));
-    iio_sleep(sleepTime > 0 ? sleepTime : 0);
+    // double sleepTime = 1000.0f * ((1.0f / 400) - (glfwGetTime() - currentTime));
+    // iio_sleep(sleepTime > 0 ? sleepTime : 0);
   }
   vkDeviceWaitIdle(state.device);
 }
@@ -1883,13 +2012,7 @@ void draw_frame() {
   vkResetFences(state.device, 1, &state.inFlightFences[state.currentFrame]);
   vkResetCommandBuffer(state.commandBuffers[state.currentFrame], 0);
 
-  if (doTestTriangle) {
-    iio_record_testtriangle_command_buffer(state.commandBuffers[state.currentFrame], imageIndex, state.currentFrame);
-  } else if (doTestCube) {
-    iio_record_testcube_command_buffer(state.commandBuffers[state.currentFrame], imageIndex, state.currentFrame);
-  } else {
-
-  }
+  iio_record_render_to_command_buffer(state.commandBuffers[state.currentFrame], imageIndex, state.currentFrame);
 
   VkPipelineStageFlags flags [] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
   VkSubmitInfo submitInfo = {0};
@@ -1923,6 +2046,105 @@ void draw_frame() {
   }
 
   state.currentFrame = (state.currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+}
+
+void iio_record_render_to_command_buffer(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame) {
+  VkResult result;
+  VkCommandBufferBeginInfo beginInfo = {0};
+  beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+  beginInfo.pNext = NULL;
+  beginInfo.flags = 0;
+  beginInfo.pInheritanceInfo = NULL;
+  
+  result = vkBeginCommandBuffer(commandBuffer, &beginInfo);
+  if (result != VK_SUCCESS) {
+    iio_vk_error(result, __LINE__, __FILE__);
+    exit(1);
+  }
+
+  iio_transition_swapchain_image_layout(
+    commandBuffer,
+    imageIndex,
+    VK_IMAGE_LAYOUT_UNDEFINED,
+    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    0,
+    VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+    VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+    VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+    &state
+  );
+
+  VkRenderingAttachmentInfo colorAttachment = {
+    .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+    .clearValue = {
+      .color.float32 = {0.5, 0.0, 0.5, 1.0},
+    },
+    .imageView = state.swapChainImageViews[imageIndex],
+    .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+    .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+  };
+
+  VkRenderingInfo renderingInfo = {
+    .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+    .pNext = NULL,
+    .flags = 0,
+    .renderArea = {
+      .offset = {0, 0},
+      .extent = state.swapChainImageExtent
+    },
+    .layerCount = 1,
+    .colorAttachmentCount = 1,
+    .pColorAttachments = &colorAttachment,
+    .viewMask = 0
+  };
+  
+  vkCmdBeginRendering(commandBuffer, &renderingInfo);
+
+  //record the draw commands here
+  
+  // for each pipeline, bind the pipelines, set the dynamic state, and draw the associated objects
+  vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, state.graphicsPipelineManger.pipeline);
+
+  VkViewport viewport = {0};
+  viewport.x = 0.0f;
+  viewport.y = 0.0f;
+  viewport.height = (float) state.swapChainImageExtent.height;
+  viewport.width = (float) state.swapChainImageExtent.width;
+  viewport.minDepth = 0.0f;
+  viewport.maxDepth = 1.0f;
+  vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+
+  VkRect2D scissor = {0};
+  scissor.offset = (VkOffset2D) {0, 0};
+  scissor.extent = state.swapChainImageExtent;
+  vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+  // for each render target group by texture, bind the texture descriptor sets
+
+  
+
+  //end of recording draw commands
+
+  vkCmdEndRendering(commandBuffer);
+
+  iio_transition_swapchain_image_layout(
+    commandBuffer,
+    imageIndex,
+    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+    VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+    0,
+    VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+    VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+    &state
+  );
+
+  result = vkEndCommandBuffer(commandBuffer);
+  if (result != VK_SUCCESS) {
+    iio_vk_error(result, __LINE__, __FILE__);
+    exit(1);
+  }
 }
 
 void iio_record_testtriangle_command_buffer(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame) {
@@ -2149,6 +2371,10 @@ void iio_record_testcube_command_buffer(VkCommandBuffer commandBuffer, uint32_t 
     iio_vk_error(result, __LINE__, __FILE__);
     exit(1);
   }
+}
+
+void iio_record_primitive_command_buffer(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame, IIOPrimitive * primitive) {
+
 }
 
 void iio_change_physical_device(VkPhysicalDevice physicalDevice) {

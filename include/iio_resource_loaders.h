@@ -95,12 +95,31 @@ typedef struct IIOModel_S {
   mat4                                      modelMatrix;
 } IIOModel;
 
+typedef struct IIOPrimitive2_S {
+  VkBuffer                                  vertexBuffer;
+  VkBuffer                                  indexBuffer;
+} IIOPrimitive2;
+
+typedef struct IIOPrimitiveGroup_S {
+  VkDescriptorSet                           baseColorDescriptor;
+  VkDescriptorSet                           metallicRoughnessDescriptor;
+  VkDescriptorSet                           normalDescriptor;
+  VkDescriptorSet                           occlusionDescriptor;
+  VkDescriptorSet                           emmissiveDescriptor;
+} IIOPrimitiveGroup;
+
+typedef struct IIOModel2_S {
+  IIOPrimitiveGroup *                       primitiveGroups;
+  VkBuffer                                  primitiveMeshIDBuffer;
+  VkBuffer                                  groupMaterialUBOBuffer;
+} IIOModel2;
+
 typedef struct IIOImageHandle_S {
   VkImage                                   data;
   VkImageView                               view;
   VkSampler                                 sampler;
   VkDeviceMemory                            memory;
-  uint32_t                                  users;
+  VkDescriptorSet                           descriptor;
 } IIOImageHandle;
 
 typedef enum IIOImageType_E {
@@ -116,7 +135,7 @@ typedef IIOModel * IIOModelPtr;
 #define T hmap_strModel, IIOStringWrapper, IIOModelPtr, (c_keypro)
 #include "stc/hmap.h"
 
-#define T hmap_strImg, IIOStringWrapper, IIOImage, (c_keypro)
+#define T hmap_strImg, IIOStringWrapper, IIOImageHandle, (c_keypro)
 #include "stc/hmap.h"
 
 typedef struct IIOResourceManager_S {
@@ -150,13 +169,14 @@ void iio_initialize_default_texture_resources(IIOResourceManager * manager);
 void iio_initialize_resource_manager(IIOResourceManager * manager);
 
 void iio_load_model(
+  IIOResourceManager *                      manager,
   const char *                              path, 
   IIOModel *                                model
 );
 
 void iio_load_image(
   IIOResourceManager *                      manager, 
-  const char * path, IIOImageHandle *             image, 
+  const char * path, IIOImageHandle *       image, 
   const VkSamplerCreateInfo *               samplerInfo
 );
 
