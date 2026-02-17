@@ -56,7 +56,7 @@ const char * validationLayers [] = {
   "VK_LAYER_KHRONOS_validation",
 };
 
-const bool enableValidationLayers = false;
+const bool enableValidationLayers = true;
 
 // int MAX_FRAMES_IN_FLIGHT = 2;
 
@@ -103,7 +103,6 @@ const bool doTestCube = !doTestTriangle;
  ****************************************************************************************************/
 
 IIOVulkanState * iio_init_vulkan_api() {
-  atexit(iio_cleanup);
   memset(&state, 0, sizeof(IIOVulkanState));
   return &state;
 }
@@ -1990,6 +1989,7 @@ void iio_run() {
     // iio_sleep(sleepTime > 0 ? sleepTime : 0);
   }
   vkDeviceWaitIdle(state.device);
+  iio_cleanup();
 }
 
 void draw_frame() {
@@ -2012,7 +2012,14 @@ void draw_frame() {
   vkResetFences(state.device, 1, &state.inFlightFences[state.currentFrame]);
   vkResetCommandBuffer(state.commandBuffers[state.currentFrame], 0);
 
-  iio_record_render_to_command_buffer(state.commandBuffers[state.currentFrame], imageIndex, state.currentFrame);
+
+  if (doTestTriangle) {
+    iio_record_testtriangle_command_buffer(state.commandBuffers[state.currentFrame], imageIndex, state.currentFrame);
+  } else if (doTestCube) {
+    iio_record_testcube_command_buffer(state.commandBuffers[state.currentFrame], imageIndex, state.currentFrame);
+  } else {
+    iio_record_render_to_command_buffer(state.commandBuffers[state.currentFrame], imageIndex, state.currentFrame);
+  }
 
   VkPipelineStageFlags flags [] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
   VkSubmitInfo submitInfo = {0};
@@ -2408,19 +2415,27 @@ void iio_cleanup() {
   //  Clean up the default textures
   iio_destroy_resources(state.device);
 
-  iio_destroy_image(state.device, "269670.png", &state.resourceManager);
+  iio_destroy_image(state.device, testTextureFilename, &state.resourceManager);
   for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
     if (state.globalUniformBuffers) vkDestroyBuffer(state.device, state.globalUniformBuffers[i], NULL);
     if (state.globalUniformBuffersMemory) vkFreeMemory(state.device, state.globalUniformBuffersMemory[i], NULL);
   }
+
   if (testCube.indexBuffer) vkDestroyBuffer(state.device, testCube.indexBuffer, NULL);
   if (testCube.indexBufferMemory) vkFreeMemory(state.device, testCube.indexBufferMemory, NULL);
   if (testCube.vertexBuffer) vkDestroyBuffer(state.device, testCube.vertexBuffer, NULL);
   if (testCube.vertexBufferMemory) vkFreeMemory(state.device, testCube.vertexBufferMemory, NULL);
   for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+    if (testCube.modelUniformBuffer[i]) vkDestroyBuffer(state.device, testCube.modelUniformBuffer[i], NULL);
+    if (testCube.modelUniformBufferMemory[i]) vkFreeMemory(state.device, testCube.modelUniformBufferMemory[i], NULL);
+  }
+
+  for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
     if (state.imageAvailableSemaphores) vkDestroySemaphore(state.device, state.imageAvailableSemaphores[i], NULL);
-    if (state.renderFinishedSemaphores) vkDestroySemaphore(state.device, state.renderFinishedSemaphores[i], NULL);
     if (state.inFlightFences) vkDestroyFence(state.device, state.inFlightFences[i], NULL);
+  }
+  for (int i = 0; i < state.swapChainImageCount; i++) {
+    if (state.renderFinishedSemaphores) vkDestroySemaphore(state.device, state.renderFinishedSemaphores[i], NULL);
   }
   if (state.descriptorPoolMangers) {
     for (uint32_t i = 0; i < state.descriptorPoolManagerCount; i++) {
