@@ -198,38 +198,7 @@ void iio_load_model2(
   IIOModel2 *                               model)
 
 {
-  //  Check if the pointer to model in NULL. The algorithm expects there to be an initialized model struct.
-  if (!model) {
-    fprintf(stderr, "Tried to load GLTF Model into a null IIOModel2]n");
-    return;
-  }
-
-  //  Check if the model is already loaded. If so, then we will just copy the existing data.
-  if (hmap_strModel_contains(&manager->modelMap, filename)) {
-    IIOModel2 * mappedModel = hmap_strModel_at_mut(&manager->modelMap, filename);
-    model->primitiveGroups = mappedModel->primitiveGroups;
-    model->groupMaterialUBOBuffer = mappedModel->groupMaterialUBOBuffer;
-    model->primitiveMeshIDBuffer = mappedModel->primitiveMeshIDBuffer;
-  }
-
-  //  Load the file if it hasn't been already. If there are any problems then print out errors and return.
-  char path [255] = IIO_PATH_TO_MODELS;
-  strncat(path, filename, sizeof(path) - sizeof(IIO_PATH_TO_MODELS) - 1);
-  cgltf_options options = {0};
-  cgltf_data * data = NULL;
-  cgltf_result result = cgltf_parse_file(&options, path, &data);
-  if (result != cgltf_result_success) {
-    fprintf(stderr, "Failed to parse model file: %s\n", path);
-    return;
-  }
-  result = cgltf_load_buffers(&options, data, path);
-  if (result != cgltf_result_success) {
-    fprintf(stderr, "Failed to load buffers for model file: %s\n", path);
-    cgltf_free(data);
-    return;
-  }
-
-  //
+  
 }
 
 void iio_load_model(
