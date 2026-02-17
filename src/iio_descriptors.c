@@ -208,7 +208,7 @@ VkDescriptorSet iio_allocate_descriptor_set(
   
   VkResult result = vkAllocateDescriptorSets(device, &allocateInfo, &descriptorSet);
   if (result == VK_SUCCESS) {
-    return descriptorSet;
+    goto lbl_success;
   } else if (result != VK_ERROR_OUT_OF_POOL_MEMORY && result != VK_ERROR_FRAGMENTED_POOL) {
     return VK_NULL_HANDLE;
   }
@@ -227,6 +227,9 @@ VkDescriptorSet iio_allocate_descriptor_set(
     return VK_NULL_HANDLE;
   }
 
+lbl_success:
+  fprintf(stdout, "descriptor set 0x%x allocated to descriptor pool 0x%x\n", descriptorSet, descriptorPool);
+  deque_Pool_push_back(&manager->readyPools, descriptorPool);
   return descriptorSet;
 }
 
@@ -252,13 +255,17 @@ void iio_destroy_descriptor_pools(
   IIODescriptorPoolManager *      manager) 
 
 {
+  fprintf(stdout, "destroying ready descriptor pools (is empty: %u)\n", deque_Pool_is_empty(&manager->readyPools));
   for (uint32_t i = 0; i < deque_Pool_size(&manager->readyPools); i++) {
     VkDescriptorPool * descriptorPool = deque_Pool_at_mut(&manager->readyPools, i);
+    fprintf(stdout, "destroying descriptor pool 0x%x\n", *descriptorPool);
     vkDestroyDescriptorPool(device, *descriptorPool, 0);
   }
   deque_Pool_clear(&manager->readyPools);
+  fprintf(stdout, "destorying used descriptor pools (is empty: %u)\n", deque_Pool_is_empty(&manager->usedPools));
   for (uint32_t i = 0; i < deque_Pool_size(&manager->usedPools); i++) {
     VkDescriptorPool * descriptorPool = deque_Pool_at_mut(&manager->usedPools, i);
+    fprintf(stdout, "destroying descriptor pool 0x%x\n", *descriptorPool);
     vkDestroyDescriptorPool(device, *descriptorPool, 0);
   }
   deque_Pool_clear(&manager->usedPools);
@@ -269,6 +276,7 @@ void iio_destroy_descriptor_pool_manager(
   IIODescriptorPoolManager *      manager) 
   
 {
+  fprintf(stdout, "Destroying descriptor pool manager at %p\n", manager);
   if (!device) {
     fprintf(stderr, "Tried to destroy descriptor pool manager with a NULL device\n");
     return;
